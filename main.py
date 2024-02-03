@@ -3,14 +3,17 @@ import re
 import json
 import yaml
 
-def take_config(name):
+def take_config(name, user = False):
     with open('config.yaml', 'r') as f:
         templates = yaml.safe_load(f)
-        return templates[name]
+        if user:
+            return templates["USER_ID"][name]
+        else:
+            return templates[name]
 
 def check_file(file_name, user_id):
 
-    user_id = take_config(user_id)
+    user_id = take_config(user_id, True)
     workbook = xlrd.open_workbook(file_name)
     sheet = workbook.sheet_by_index(0)
 
@@ -20,11 +23,6 @@ def check_file(file_name, user_id):
         row_dict = {}
 
         if user_id in sheet.cell_value(rx, 7):
-            if 'прос.' in sheet.cell_value(rx, 13):
-                row_dict['time_left'] = f"<b>Просрочка:</b> {sheet.cell_value(rx, 13)}"
-            else:
-                continue
-
             if sheet.cell_value(rx, 5) not in IGNORE_BUYERS:
                 row_dict['buyer'] = f"<b>Юр. Лицо:</b> {sheet.cell_value(rx, 5)}"
             else:
@@ -34,7 +32,12 @@ def check_file(file_name, user_id):
 
             document_data = re.search(r"(\d{7}) от (\d{2}\.\d{2}\.\d{4})", sheet.cell_value(rx, 6))
             row_dict['document'] = f"<b>Накладная:</b> {document_data.group(1)} от {document_data.group(2)}"
-            
+
+            if 'прос.' in sheet.cell_value(rx, 13):
+                row_dict['time_left'] = f"<u><b>Просрочка:</b></u> {sheet.cell_value(rx, 13)}"
+            else:
+                continue
+
             row_dict['seller'] = f"<b>ТП:</b> {sheet.cell_value(rx, 7)}"
             row_dict['price'] = f"<b>Сумма:</b> {str(sheet.cell_value(rx, 10))} грн"
             row_dict['payed'] = f"<b>Оплачено;</b> {str(sheet.cell_value(rx, 11))} грн"
@@ -80,7 +83,20 @@ def create_answer():
             client_list += f"{clients[value]}\n"
         client_list += "\n" + "_" * 35 + "\n\n"
         msg.append(client_list)
+
     return msg
+
+def get_request(text):
+    pattern = r'(вул\.|просп\.|вулиця|набер\.|бул\.|бульвар).*?(\d+[а-я]*)'
+
+    text = text.strip("_").strip("\n").split('\n')
+
+    name = text[0][text[0].index(":") + 2:]
+    adress = re.search(pattern, text[1]).group(0)
+    document_id = text[2][text[2].index(':') + 2:]
+
+    text = f"Сделай, пожалуйста, электронную накладную на\n{name}\n{adress}\n{document_id}"
+    return text
 
 IGNORE_BUYERS = take_config("IGNORE_BUYERS")
 IGNORE_COMMENTS = take_config("IGNORE_COMMENTS")
