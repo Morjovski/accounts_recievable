@@ -3,7 +3,10 @@ import re
 import json
 import yaml
 
+import database as db
+
 def take_config(name, user = False):
+    """Takes information from config file"""
     with open('config.yaml', 'r') as f:
         templates = yaml.safe_load(f)
         if user:
@@ -12,7 +15,7 @@ def take_config(name, user = False):
             return templates[name]
 
 def check_file(file_name, user_id):
-
+    """Format data from xls to json for better use"""
     user_id = take_config(user_id, True)
     workbook = xlrd.open_workbook(file_name)
     sheet = workbook.sheet_by_index(0)
@@ -66,6 +69,7 @@ def open_json():
         return json_data
     
 def create_answer():
+    """Show a list of debitors at this moment"""
     debet = debet_len()
 
     data = open_json()
@@ -87,6 +91,7 @@ def create_answer():
     return msg
 
 def get_request(text):
+    """Create a layout for asking to create a virtual waybill"""
     pattern = r'(вул\.|просп\.|вулиця|набер\.|бул\.|бульвар).*?(\d+[а-я]*)'
 
     text = text.strip("_").strip("\n").split('\n')
@@ -98,5 +103,50 @@ def get_request(text):
     text = f"Сделай, пожалуйста, электронную накладную на\n{name}\n{adress}\n{document_id}"
     return text
 
+def create_db():
+    conn = db.connect_db(DB_PATH)
+
+    try:
+        db.create_db(conn)
+    except Exception as e:
+        print(f"Ошибка создания БД!\n\n{e}\n\n")
+        return False
+
+    return True
+
+def user_add_db(input, user_id):
+    last_name = input[0]
+    first_name = input[1]
+    
+    try:
+        conn = db.connect_db(DB_PATH)
+        db.add_user(conn, user_id, last_name, first_name)
+    except Exception as e:
+        print(f"Ошибка при добавлении ТП!\n\n{e}\n\n")
+        return False
+    
+    return True
+    
+def buyer_add_db(input, user_id):
+    try:
+        conn = db.connect_db(DB_PATH)
+        db.add_buyers(conn, input, user_id)
+    except Exception as e:
+        print(f"Ошибка при добавлении Юр. Лица!\n\n{e}\n\n")
+        return False
+    
+    return True
+
+def comment_add_db(input, user_id):
+    try:
+        conn = db.connect_db(DB_PATH)
+        db.add_comments(conn, input, user_id)
+    except Exception as e:
+        print(f"Ошибка при добавлении комментария!\n\n{e}\n\n")
+        return False
+    
+    return True
+
+DB_PATH = take_config("DB_PATH")
 IGNORE_BUYERS = take_config("IGNORE_BUYERS")
 IGNORE_COMMENTS = take_config("IGNORE_COMMENTS")
